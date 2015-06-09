@@ -2,9 +2,7 @@ package com.appchey.jsondb;
 
 import android.content.Intent;
 import android.os.Bundle;
-import android.support.v7.app.ActionBarActivity;
 import android.support.v7.app.AppCompatActivity;
-import android.util.Log;
 import android.view.ContextMenu;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -13,7 +11,6 @@ import android.widget.AdapterView;
 import android.widget.ListView;
 
 import java.util.ArrayList;
-import java.util.Random;
 
 
 public class MainActivity extends AppCompatActivity
@@ -38,26 +35,7 @@ public class MainActivity extends AppCompatActivity
         list.setAdapter(adapter);
         registerForContextMenu(list);
 
-        String[] names = {
-            "Khutha",
-            "Mel",
-            "Tshepiso",
-            "Yvonne",
-            "Musehani",
-            "Working"
-        };
-
-        User user;
-        Random random = new Random(System.currentTimeMillis());
-        for (String s : names)
-        {
-            user = new User();
-            user.age = random.nextInt(40);
-            user.name = s;
-            user.save();
-        }
-
-        users = User.all(User.class);
+        users = User.list(User.class);
         adapter.setList(users);
         adapter.notifyDataSetChanged();
     }
@@ -96,7 +74,7 @@ public class MainActivity extends AppCompatActivity
             {
                 user.delete();
 
-                users = User.all(User.class);
+                users = User.list(User.class);
                 adapter.setList(users);
                 adapter.notifyDataSetChanged();
                 break;
@@ -112,7 +90,16 @@ public class MainActivity extends AppCompatActivity
         {
             if (resultCode == RESULT_OK)
             {
-                users = User.all(User.class);
+                users = User.list(User.class);
+                adapter.setList(users);
+                adapter.notifyDataSetChanged();
+            }
+        }
+        else if (requestCode == 1235)
+        {
+            if (resultCode == RESULT_OK)
+            {
+                users = User.list(User.class);
                 adapter.setList(users);
                 adapter.notifyDataSetChanged();
             }
@@ -134,7 +121,10 @@ public class MainActivity extends AppCompatActivity
         int id = item.getItemId();
 
         //noinspection SimplifiableIfStatement
-        if (id == R.id.action_settings) {
+        if (id == R.id.action_add)
+        {
+            Intent intent = new Intent(this, EditActivity.class);
+            startActivityForResult(intent, 1235);
             return true;
         }
 

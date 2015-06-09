@@ -2,22 +2,34 @@ package com.appchey.jsondb;
 
 import android.content.ContentValues;
 import android.content.Context;
-import android.content.pm.ApplicationInfo;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.provider.BaseColumns;
 import android.util.Log;
 
+import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.Serializable;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
+import java.util.Iterator;
+import java.util.Locale;
 
 public class JSONDBRecord <T extends JSONDBRecord> implements BaseColumns, Serializable
 {
-    public long _id;
+    private static final long serialVersionUID = 6349676001008456136L;
+    public static final String INTEGER = "INTEGER";
+    public static final String TEXT = "TEXT";
+    public static final String NULL = "NULL";
+    public static final String REAL = "REAL";
+    public static final String BLOB = "BLOB";
+    public static final String UNSUPPORTED = "UNSUPPORTED";
+
+    public long _id = -1;
     private String table_name;
     private static Context contxt;
 
@@ -31,7 +43,35 @@ public class JSONDBRecord <T extends JSONDBRecord> implements BaseColumns, Seria
 
     public JSONDBRecord(JSONObject json)
     {
+        this();
 
+        Iterator<?> keys = json.keys();
+
+        String key;
+        Class c = getClass();
+        while (keys.hasNext())
+        {
+            key = (String)keys.next();
+            try {
+                Field field = c.getField(key);
+                if (fieldType(field).equals(INTEGER))
+                {
+                    field.setInt(this, json.getInt(key));
+                }
+                else if (fieldType(field).equals(TEXT))
+                {
+                    field.set(this, json.getString(key));
+                }
+            }
+            catch (NoSuchFieldException e)
+            {
+                // don't do anything if field is not found (ignore)
+            }
+            catch (Exception e)
+            {
+                e.printStackTrace();
+            }
+        }
     }
 
     public static void init(Context context)
@@ -39,7 +79,56 @@ public class JSONDBRecord <T extends JSONDBRecord> implements BaseColumns, Seria
         contxt = context;
     }
 
-    public static <T> ArrayList<T> all(Class c)
+    public static <T> ArrayList<T> list(Class c)
+    {
+        return list(c, null, null);
+    }
+
+    public static <T> ArrayList<T> list(Class c,
+                                        String selection,
+                                        String[] selectionArgs)
+    {
+        return list(c,
+                selection,
+                selectionArgs,
+                null,
+                null,
+                null);
+    }
+
+    public static <T> ArrayList<T> list(Class c,
+                                        String selection,
+                                        String[] selectionArgs,
+                                        String groupBy)
+    {
+        return list(c,
+                selection,
+                selectionArgs,
+                groupBy,
+                null,
+                null);
+    }
+
+    public static <T> ArrayList<T> list(Class c,
+                                        String selection,
+                                        String[] selectionArgs,
+                                        String groupBy,
+                                        String having)
+    {
+        return list(c,
+                selection,
+                selectionArgs,
+                groupBy,
+                having,
+                null);
+    }
+
+    public static <T> ArrayList<T> list(Class c,
+                                        String selection,
+                                        String[] selectionArgs,
+                                        String groupBy,
+                                        String having,
+                                        String orderBy)
     {
         ArrayList<Field> columns = new ArrayList<>();
         Field[] fields = c.getDeclaredFields();
@@ -56,6 +145,12 @@ public class JSONDBRecord <T extends JSONDBRecord> implements BaseColumns, Seria
             }
         }
 
+        if (!tableExists(c.getSimpleName().toLowerCase(), db))
+        {
+            Log.i("Creating table", c.getSimpleName().toLowerCase());
+            createTable(c, columns, db);
+        }
+
         // _id is not returned by getDeclaredFields because it's declared
         // higher up the hierarchy
         String[] projection = new String[columns.size() + 1];
@@ -67,11 +162,11 @@ public class JSONDBRecord <T extends JSONDBRecord> implements BaseColumns, Seria
 
         Cursor cursor = db.query(c.getSimpleName().toLowerCase(),
             projection,
-            null,
-            null,
-            null,
-            null,
-            null);
+            selection,
+            selectionArgs,
+            groupBy,
+            having,
+            orderBy);
 
         cursor.moveToFirst();
         T record;
@@ -85,7 +180,6 @@ public class JSONDBRecord <T extends JSONDBRecord> implements BaseColumns, Seria
                 {
                     if (cursor.getColumnName(i).equals(_ID))
                     {
-
                         c.getField("_id").setLong(record, cursor.getInt(i));
                     }
                     else if (cursor.getType(i) == Cursor.FIELD_TYPE_INTEGER)
@@ -94,7 +188,16 @@ public class JSONDBRecord <T extends JSONDBRecord> implements BaseColumns, Seria
                     }
                     else if (cursor.getType(i) == Cursor.FIELD_TYPE_STRING)
                     {
-                        c.getField(cursor.getColumnName(i)).set(record, cursor.getString(i));
+                        Field field = c.getField(cursor.getColumnName(i));
+                        if (field.getType().isAssignableFrom(Date.class))
+                        {
+                            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault());
+                            field.set(record, sdf.parse(cursor.getString(i)));
+                        }
+                        else
+                        {
+                            c.getField(cursor.getColumnName(i)).set(record, cursor.getString(i));
+                        }
                     }
                 }
 
@@ -140,15 +243,28 @@ public class JSONDBRecord <T extends JSONDBRecord> implements BaseColumns, Seria
             {
                 String type = fieldType(field);
 
-                if (type != null)
+                if (!type.equals(UNSUPPORTED))
                 {
-                    if (type.equals("INTEGER"))
+                    if (type.equals(INTEGER))
                     {
                         values.put(field.getName(), field.getInt(this));
                     }
+                    else if (type.equals(REAL))
+                    {
+                        values.put(field.getName(), field.getDouble(this));
+                    }
                     else
                     {
-                        values.put(field.getName(), (String)field.get(this));
+                        if (field.getType().isAssignableFrom(Date.class))
+                        {
+                            Date date = (Date)field.get(this);
+                            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault());
+                            values.put(field.getName(), sdf.format(date));
+                        }
+                        else
+                        {
+                            values.put(field.getName(), (String) field.get(this));
+                        }
                     }
                 }
 
@@ -184,7 +300,24 @@ public class JSONDBRecord <T extends JSONDBRecord> implements BaseColumns, Seria
         SQLiteDatabase db = new DBManager(contxt).getWritableDatabase();
         db.delete(table_name,
                 _ID + "=?",
-                new String[] {""+_id});
+                new String[]{"" + _id});
+    }
+
+    private static void createTable(Class c, ArrayList<Field> fields, SQLiteDatabase db)
+    {
+        String table_name = c.getSimpleName().toLowerCase();
+
+        String query = "CREATE TABLE " + table_name + " (" +
+                _ID + " INTEGER PRIMARY KEY, ";
+
+        for (Field field : fields)
+        {
+            query += field.getName() + " " + fieldType(field) + ",";
+        }
+
+        query = query.substring(0, query.length() - 1) + ")";
+
+        db.execSQL(query);
     }
 
     private void createTable(ArrayList<Field> fields, SQLiteDatabase db)
@@ -204,7 +337,7 @@ public class JSONDBRecord <T extends JSONDBRecord> implements BaseColumns, Seria
         db.execSQL(query);
     }
 
-    private boolean tableExists(String tableName, SQLiteDatabase db) {
+    private static boolean tableExists(String tableName, SQLiteDatabase db) {
         Cursor cursor = db.rawQuery("select DISTINCT tbl_name from sqlite_master where tbl_name = '"+tableName+"'", null);
         if(cursor!=null) {
             if(cursor.getCount()>0) {
@@ -213,6 +346,7 @@ public class JSONDBRecord <T extends JSONDBRecord> implements BaseColumns, Seria
             }
             cursor.close();
         }
+
         return false;
     }
 
@@ -222,20 +356,29 @@ public class JSONDBRecord <T extends JSONDBRecord> implements BaseColumns, Seria
         String query = "DROP TABLE IF EXISTS " + table_name;
     }
 
-    private String fieldType(Field field)
+    private static String fieldType(Field field)
     {
         Class<?> type = field.getType();
         if (type.isAssignableFrom(Integer.TYPE) ||
                 type.isAssignableFrom(Short.TYPE) ||
                 type.isAssignableFrom(Long.TYPE) ||
                 type.isAssignableFrom(Byte.TYPE)) {
-            return "INTEGER";
+            return INTEGER;
         }
         else if (type.isAssignableFrom(String.class))
         {
-            return "TEXT";
+            return TEXT;
+        }
+        else if (type.isAssignableFrom(Float.TYPE) ||
+                type.isAssignableFrom(Double.TYPE))
+        {
+            return REAL;
+        }
+        else if (type.isAssignableFrom(Date.class))
+        {
+            return TEXT;
         }
 
-        return null;
+        return UNSUPPORTED;
     }
 }

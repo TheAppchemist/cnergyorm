@@ -18,12 +18,19 @@ public class EditActivity extends AppCompatActivity
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_edit);
 
-        user = (User)getIntent().getSerializableExtra("user");
         edt_name = (EditText)findViewById(R.id.edt_name);
         edt_age = (EditText)findViewById(R.id.edt_age);
 
-        edt_name.setText(""+user.name);
-        edt_age.setText(""+user.age);
+        if (getIntent().hasExtra("user"))
+        {
+            user = (User) getIntent().getSerializableExtra("user");
+            edt_name.setText(""+user.name);
+            edt_age.setText(""+user.age);
+        }
+        else
+        {
+            user = new User();
+        }
     }
 
     @Override
