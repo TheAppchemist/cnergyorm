@@ -35,7 +35,11 @@ public class MainActivity extends AppCompatActivity
         list.setAdapter(adapter);
         registerForContextMenu(list);
 
-        users = User.list(User.class);
+        users = JSONDBRecord.list(User.class);
+        users = User.query(User.class)
+                .where("age>?", new String[] {"1"})
+                .orderAsc("created")
+                .list();
         adapter.setList(users);
         adapter.notifyDataSetChanged();
     }

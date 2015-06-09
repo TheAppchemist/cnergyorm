@@ -79,6 +79,11 @@ public class JSONDBRecord <T extends JSONDBRecord> implements BaseColumns, Seria
         contxt = context;
     }
 
+    public static <T> Query query(Class c)
+    {
+        return new <T>Query(c);
+    }
+
     public static <T> ArrayList<T> list(Class c)
     {
         return list(c, null, null);
