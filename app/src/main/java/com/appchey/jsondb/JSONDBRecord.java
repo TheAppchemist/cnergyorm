@@ -308,6 +308,25 @@ public class JSONDBRecord <T extends JSONDBRecord> implements BaseColumns, Seria
                 new String[]{"" + _id});
     }
 
+    public static void deleteAll(Class c)
+    {
+        deleteAll(c,
+                null,
+                null);
+    }
+
+    public static void deleteAll(Class c, String where, String[] selectionArgs)
+    {
+        SQLiteDatabase db = new DBManager(contxt).getWritableDatabase();
+
+        String table_name = c.getSimpleName().toLowerCase();
+        db.delete(table_name,
+                where,
+                selectionArgs);
+
+        db.close();
+    }
+
     private static void createTable(Class c, ArrayList<Field> fields, SQLiteDatabase db)
     {
         String table_name = c.getSimpleName().toLowerCase();

@@ -41,16 +41,16 @@ public class Query
 
     public <T> ArrayList<T> list()
     {
-        String orderby = null;
-        for (String order : orderBy)
+        String orderBy = null;
+        for (String order : this.orderBy)
         {
-            if (orderby == null)
+            if (orderBy == null)
             {
-                orderby = order;
+                orderBy = order;
             }
             else
             {
-                orderby += ", " + order;
+                orderBy += ", " + order;
             }
         }
 
@@ -59,6 +59,6 @@ public class Query
                 selectionArgs,
                 null,
                 null,
-                orderby);
+                orderBy);
     }
 }
