@@ -5,6 +5,7 @@ package com.appchey.jsondb;
  */
 public class User extends JSONDBRecord <User>
 {
+    private static final long serialVersionUID = -4621290116388742213L;
     public String name;
     public int age;
 }

@@ -1,17 +1,30 @@
 package com.appchey.jsondb;
 
-import android.support.v7.app.ActionBarActivity;
+import android.content.Intent;
 import android.os.Bundle;
+import android.support.v7.app.ActionBarActivity;
+import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
+import android.view.ContextMenu;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.View;
+import android.widget.AdapterView;
 import android.widget.ListView;
 
 import java.util.ArrayList;
 import java.util.Random;
 
 
-public class MainActivity extends ActionBarActivity {
+public class MainActivity extends AppCompatActivity
+{
+    private String[] menu =
+            {
+                    "Edit",
+                    "Delete"
+            };
+    private ArrayList<User> users;
+    private TestAdapter adapter;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -21,8 +34,9 @@ public class MainActivity extends ActionBarActivity {
         JSONDBRecord.init(getApplicationContext());
 
         ListView list = (ListView)findViewById(R.id.list);
-        TestAdapter adapter = new TestAdapter();
+        adapter = new TestAdapter();
         list.setAdapter(adapter);
+        registerForContextMenu(list);
 
         String[] names = {
             "Khutha",
@@ -43,10 +57,66 @@ public class MainActivity extends ActionBarActivity {
             user.save();
         }
 
-        ArrayList<User> users = User.all(User.class);
+        users = User.all(User.class);
         adapter.setList(users);
         adapter.notifyDataSetChanged();
-        Log.i("Users count:", users.size() + "");
+    }
+
+    @Override
+    public void onCreateContextMenu(ContextMenu menu, View v, ContextMenu.ContextMenuInfo menuInfo)
+    {
+        if (v.getId() == R.id.list)
+        {
+            AdapterView.AdapterContextMenuInfo info = (AdapterView.AdapterContextMenuInfo)menuInfo;
+            menu.setHeaderTitle("Options");
+            for (int i = 0; i < this.menu.length; i++)
+            {
+                menu.add(Menu.NONE, i, i, this.menu[i]);
+            }
+        }
+    }
+
+    @Override
+    public boolean onContextItemSelected(MenuItem item)
+    {
+        AdapterView.AdapterContextMenuInfo info = (AdapterView.AdapterContextMenuInfo)item.getMenuInfo();
+        int index = item.getItemId();
+        User user = users.get(info.position);
+
+        switch (index)
+        {
+            case 0:
+            {
+                Intent intent = new Intent(this, EditActivity.class);
+                intent.putExtra("user", user);
+                startActivityForResult(intent, 1234);
+                break;
+            }
+            case 1:
+            {
+                user.delete();
+
+                users = User.all(User.class);
+                adapter.setList(users);
+                adapter.notifyDataSetChanged();
+                break;
+            }
+        }
+
+        return true;
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        if (requestCode == 1234)
+        {
+            if (resultCode == RESULT_OK)
+            {
+                users = User.all(User.class);
+                adapter.setList(users);
+                adapter.notifyDataSetChanged();
+            }
+        }
     }
 
     @Override

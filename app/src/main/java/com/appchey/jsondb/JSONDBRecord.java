@@ -10,11 +10,12 @@ import android.util.Log;
 
 import org.json.JSONObject;
 
+import java.io.Serializable;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 
-public class JSONDBRecord <T extends JSONDBRecord> implements BaseColumns
+public class JSONDBRecord <T extends JSONDBRecord> implements BaseColumns, Serializable
 {
     public long _id;
     private String table_name;
@@ -64,8 +65,6 @@ public class JSONDBRecord <T extends JSONDBRecord> implements BaseColumns
             projection[i] = columns.get(i).getName();
         }
 
-        Log.i("Class name", c.getSimpleName());
-
         Cursor cursor = db.query(c.getSimpleName().toLowerCase(),
             projection,
             null,
@@ -84,7 +83,6 @@ public class JSONDBRecord <T extends JSONDBRecord> implements BaseColumns
                 int count = cursor.getColumnCount();
                 for (int i = 0; i < count; i++)
                 {
-                    Log.i("Column name", cursor.getColumnName(i));
                     if (cursor.getColumnName(i).equals(_ID))
                     {
 
@@ -97,10 +95,6 @@ public class JSONDBRecord <T extends JSONDBRecord> implements BaseColumns
                     else if (cursor.getType(i) == Cursor.FIELD_TYPE_STRING)
                     {
                         c.getField(cursor.getColumnName(i)).set(record, cursor.getString(i));
-                    }
-                    else if (cursor.getType(i) == Cursor.FIELD_TYPE_NULL)
-                    {
-
                     }
                 }
 
@@ -165,14 +159,32 @@ public class JSONDBRecord <T extends JSONDBRecord> implements BaseColumns
             }
         }
 
-        _id = db.insert(
-            table_name,
-            null,
-            values);
+        if (_id == -1)
+        {
+            _id = db.insert(
+                    table_name,
+                    null,
+                    values);
+        }
+        else
+        {
+            db.update(table_name,
+                    values,
+                    _ID+"=?",
+                    new String[]{""+_id});
+        }
 
         db.close();
 
         return _id;
+    }
+
+    public void delete()
+    {
+        SQLiteDatabase db = new DBManager(contxt).getWritableDatabase();
+        db.delete(table_name,
+                _ID + "=?",
+                new String[] {""+_id});
     }
 
     private void createTable(ArrayList<Field> fields, SQLiteDatabase db)
