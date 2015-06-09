@@ -2,8 +2,13 @@ package com.appchey.jsondb;
 
 import android.support.v7.app.ActionBarActivity;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.widget.ListView;
+
+import java.util.ArrayList;
+import java.util.Random;
 
 
 public class MainActivity extends ActionBarActivity {
@@ -15,10 +20,33 @@ public class MainActivity extends ActionBarActivity {
 
         JSONDBRecord.init(getApplicationContext());
 
-        User user = new User();
-        user.name = "Melvin";
-        user.age = 23;
-        user.save();
+        ListView list = (ListView)findViewById(R.id.list);
+        TestAdapter adapter = new TestAdapter();
+        list.setAdapter(adapter);
+
+        String[] names = {
+            "Khutha",
+            "Mel",
+            "Tshepiso",
+            "Yvonne",
+            "Musehani",
+            "Working"
+        };
+
+        /*User user;
+        Random random = new Random(System.currentTimeMillis());
+        for (String s : names)
+        {
+            user = new User();
+            user.age = random.nextInt(40);
+            user.name = s;
+            user.save();
+        }*/
+
+        ArrayList<User> users = User.all(User.class);
+        adapter.setList(users);
+        adapter.notifyDataSetChanged();
+        Log.i("Users count:", users.size() + "");
     }
 
     @Override

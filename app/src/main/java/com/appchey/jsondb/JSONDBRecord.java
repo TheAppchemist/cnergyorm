@@ -1,10 +1,12 @@
 package com.appchey.jsondb;
 
+import android.content.ContentValues;
 import android.content.Context;
 import android.content.pm.ApplicationInfo;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.provider.BaseColumns;
+import android.util.Log;
 
 import org.json.JSONObject;
 
@@ -14,7 +16,7 @@ import java.util.ArrayList;
 
 public class JSONDBRecord <T extends JSONDBRecord> implements BaseColumns
 {
-    public int _id;
+    public long _id;
     private String table_name;
     private static Context contxt;
 
@@ -36,14 +38,84 @@ public class JSONDBRecord <T extends JSONDBRecord> implements BaseColumns
         contxt = context;
     }
 
-    public static ArrayList<JSONDBRecord> all(Class c)
+    public static <T> ArrayList<T> all(Class c)
     {
-        ArrayList<JSONDBRecord> all = new ArrayList<>();
+        ArrayList<Field> columns = new ArrayList<>();
+        Field[] fields = c.getDeclaredFields();
+
+        ArrayList<T> all = new ArrayList<>();
+
+        SQLiteDatabase db = new DBManager(contxt).getWritableDatabase();
+
+        for (Field field : fields)
+        {
+            if (Modifier.isPublic(field.getModifiers()))
+            {
+                columns.add(field);
+            }
+        }
+
+        String[] projection = new String[columns.size()];
+        for (int i = 0; i < projection.length; i++)
+        {
+            projection[i] = columns.get(i).getName();
+        }
+
+        Log.i("Class name", c.getSimpleName());
+
+        Cursor cursor = db.query(c.getSimpleName().toLowerCase(),
+            projection,
+            null,
+            null,
+            null,
+            null,
+            null);
+
+        cursor.moveToFirst();
+        T record;
+        try
+        {
+            while (!cursor.isAfterLast())
+            {
+                record = (T) c.newInstance();
+                int count = cursor.getColumnCount();
+                for (int i = 0; i < count; i++)
+                {
+                    if (cursor.getColumnName(i).equals(_ID))
+                    {
+                        c.getField("_id").setLong(record, cursor.getInt(i));
+                    }
+                    else if (cursor.getType(i) == Cursor.FIELD_TYPE_INTEGER)
+                    {
+                        c.getField(cursor.getColumnName(i)).setInt(record, cursor.getInt(i));
+                    }
+                    else if (cursor.getType(i) == Cursor.FIELD_TYPE_STRING)
+                    {
+                        c.getField(cursor.getColumnName(i)).set(record, cursor.getString(i));
+                    }
+                    else if (cursor.getType(i) == Cursor.FIELD_TYPE_NULL)
+                    {
+
+                    }
+                }
+
+                all.add(record);
+
+                cursor.moveToNext();
+            }
+            cursor.close();
+        }
+        catch (Exception e)
+        {
+            e.printStackTrace();
+        }
+
+        db.close();
 
         return all;
     }
 
-    public void save()
+    public long save()
     {
         ArrayList<Field> columns = new ArrayList<>();
         Field[] fields = getClass().getDeclaredFields();
@@ -55,8 +127,6 @@ public class JSONDBRecord <T extends JSONDBRecord> implements BaseColumns
             {
                 columns.add(field);
             }
-
-
         }
 
         if (!tableExists(table_name, db))
@@ -64,7 +134,40 @@ public class JSONDBRecord <T extends JSONDBRecord> implements BaseColumns
             createTable(columns, db);
         }
 
+        ContentValues values = new ContentValues();
+        for (Field field : columns)
+        {
+            try
+            {
+                String type = fieldType(field);
+
+                if (type != null)
+                {
+                    if (type.equals("INTEGER"))
+                    {
+                        values.put(field.getName(), field.getInt(this));
+                    }
+                    else
+                    {
+                        values.put(field.getName(), (String)field.get(this));
+                    }
+                }
+
+            }
+            catch (Exception e)
+            {
+                e.printStackTrace();
+            }
+        }
+
+        _id = db.insert(
+            table_name,
+            null,
+            values);
+
         db.close();
+
+        return _id;
     }
 
     private void createTable(ArrayList<Field> fields, SQLiteDatabase db)
