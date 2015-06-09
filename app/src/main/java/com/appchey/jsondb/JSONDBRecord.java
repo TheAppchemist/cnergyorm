@@ -55,8 +55,11 @@ public class JSONDBRecord <T extends JSONDBRecord> implements BaseColumns
             }
         }
 
-        String[] projection = new String[columns.size()];
-        for (int i = 0; i < projection.length; i++)
+        // _id is not returned by getDeclaredFields because it's declared
+        // higher up the hierarchy
+        String[] projection = new String[columns.size() + 1];
+        projection[projection.length - 1] = "_id";
+        for (int i = 0; i < projection.length - 1; i++)
         {
             projection[i] = columns.get(i).getName();
         }
@@ -81,8 +84,10 @@ public class JSONDBRecord <T extends JSONDBRecord> implements BaseColumns
                 int count = cursor.getColumnCount();
                 for (int i = 0; i < count; i++)
                 {
+                    Log.i("Column name", cursor.getColumnName(i));
                     if (cursor.getColumnName(i).equals(_ID))
                     {
+
                         c.getField("_id").setLong(record, cursor.getInt(i));
                     }
                     else if (cursor.getType(i) == Cursor.FIELD_TYPE_INTEGER)

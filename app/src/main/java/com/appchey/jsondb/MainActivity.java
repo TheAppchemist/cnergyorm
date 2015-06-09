@@ -33,7 +33,7 @@ public class MainActivity extends ActionBarActivity {
             "Working"
         };
 
-        /*User user;
+        User user;
         Random random = new Random(System.currentTimeMillis());
         for (String s : names)
         {
@@ -41,7 +41,7 @@ public class MainActivity extends ActionBarActivity {
             user.age = random.nextInt(40);
             user.name = s;
             user.save();
-        }*/
+        }
 
         ArrayList<User> users = User.all(User.class);
         adapter.setList(users);
