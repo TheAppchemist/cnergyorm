@@ -1,21 +1,27 @@
 package com.appchey.jsondb;
 
 import android.content.ContentValues;
-import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.provider.BaseColumns;
-import android.util.Log;
+import android.text.TextUtils;
 
-import org.json.JSONException;
+import com.appchey.jsondb.tableinfo.Column;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.JsonToken;
+
 import org.json.JSONObject;
 
+import java.io.IOException;
 import java.io.Serializable;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.Hashtable;
 import java.util.Iterator;
 import java.util.Locale;
 
@@ -27,50 +33,56 @@ public class JSONDBRecord <T extends JSONDBRecord> implements BaseColumns, Seria
     public static final String NULL = "NULL";
     public static final String REAL = "REAL";
     public static final String BLOB = "BLOB";
+    public static final String FOREIGN_KEY = "FOREIGN_KEY";
     public static final String UNSUPPORTED = "UNSUPPORTED";
 
     public long _id = -1;
 
-    private static Context contxt;
-    private static ArrayList<Field> columns;
-    private static boolean fieldsGenerated;
-    private static String table_name;
-
-    static
-    {
-        columns = new ArrayList<>();
-        fieldsGenerated = false;
-    }
-
-    private static void generateFields(Class c)
-    {
-        Field[] fields = c.getDeclaredFields();
-        for (Field field : fields)
-        {
-            if (Modifier.isPublic(field.getModifiers()))
-            {
-                try
-                {
-                    Class<?> componentType = field.getType().getComponentType();
-                    componentType.newInstance();
-                }
-                catch (Exception e)
-                {
-                    e.printStackTrace();
-                }
-
-                columns.add(field);
-            }
-        }
-
-        table_name = c.getSimpleName().toLowerCase();
-    }
-
     public JSONDBRecord()
     {
-        table_name = getClass().getSimpleName().toLowerCase();
+        SQLiteDatabase db = JSONDBApplicationContext.getContext().getDatabase();
+        setup(getClass(), db);
+    }
 
-        generateFields(getClass());
+    public JSONDBRecord(JsonParser parser) throws IOException
+    {
+        if (parser.nextToken() != JsonToken.START_OBJECT)
+        {
+            throw new IOException("Jackson IO Error");
+        }
+
+        ArrayList<Column> columns = generateFields(getClass());
+
+        while (parser.nextToken() != JsonToken.END_OBJECT)
+        {
+            String fieldName = parser.getCurrentName();
+            parser.nextToken();
+
+            String value = parser.getText();
+
+            for (Column column : columns)
+            {
+                if (fieldName.equals(column.getName()))
+                {
+                    try
+                    {
+                        Field field = getClass().getField(column.getName());
+                        Class <?> type = field.getType();
+                        if (type == Integer.TYPE)
+                        {
+                            if (TextUtils.isDigitsOnly(value)) {
+                                field.setInt(this, Integer.parseInt(value));
+                            }
+                            break;
+                        }
+                    }
+                    catch (Exception e)
+                    {
+
+                    }
+                }
+            }
+        }
     }
 
     public JSONDBRecord(JSONObject json)
@@ -106,14 +118,131 @@ public class JSONDBRecord <T extends JSONDBRecord> implements BaseColumns, Seria
         }
     }
 
-    public static void init(Context context)
+    public static String getTableName(Class c)
     {
-        contxt = context;
+        return c.getSimpleName().toLowerCase();
+    }
+
+    private static ArrayList<Column> generateFields(Class c)
+    {
+        ArrayList<Column> columns = new ArrayList<>();
+        Field[] fields = c.getDeclaredFields();
+        for (Field field : fields)
+        {
+            if (Modifier.isPublic(field.getModifiers()))
+            {
+                if (field.getType().isAssignableFrom(ArrayList.class))
+                {
+                    try {
+                        Type type = field.getGenericType();
+                        if (type instanceof ParameterizedType)
+                        {
+                            ParameterizedType paramType = (ParameterizedType)type;
+                            Type[] types = paramType.getActualTypeArguments();
+                            if (types.length > 0)
+                            {
+                                String classname = types[0].toString();
+                                if (classname.length() > 6) // start of class name
+                                {
+                                    classname = classname.substring(6);
+                                    Class.forName(classname).newInstance();
+                                }
+                            }
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        e.printStackTrace();
+                    }
+                    continue;
+                }
+
+                String name;
+                Class<?> type = field.getType();
+                if (type == Long.TYPE ||
+                        type == Integer.TYPE ||
+                        type == Short.TYPE ||
+                        type == Byte.TYPE ||
+                        type == Double.TYPE ||
+                        type == Float.TYPE ||
+                        type == Date.class ||
+                        type == String.class)
+                {
+                    name = field.getName();
+                    columns.add(new Column(name, fieldType(field)));
+                }
+                else
+                {
+                    try
+                    {
+                        if (field.getType().newInstance() instanceof JSONDBRecord)
+                        {
+                            name = getTableName(field.getType());
+                            columns.add(new Column(name, fieldType(field), true));
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        e.printStackTrace();
+                    }
+                }
+            }
+        }
+
+        return columns;
+    }
+
+    private static void setup(Class c, SQLiteDatabase db)
+    {
+        if (!tableExists(getTableName(c), db))
+        {
+            createTable(c, db);
+        }
+        else
+        {
+
+        }
     }
 
     public static <T> Query query(Class c)
     {
         return new <T>Query(c);
+    }
+
+    public static <T> T findById(Class c, int id)
+    {
+        SQLiteDatabase db = JSONDBApplicationContext.getContext().getDatabase();
+        ArrayList<Column> columns = generateFields(c);
+        String[] projection = new String[columns.size() + 1];
+        projection[projection.length - 1] = "_id";
+        for (int i = 0; i < projection.length - 1; i++)
+        {
+            projection[i] = columns.get(i).getName();
+        }
+
+        Cursor cursor = db.query(getTableName(c),
+                projection,
+                _ID+"=?",
+                new String[] {""+id},
+                null,
+                null,
+                null);
+
+        if (cursor.moveToFirst())
+        {
+            try
+            {
+                return setValues(c, cursor);
+            }
+            catch (Exception e)
+            {
+                e.printStackTrace();
+
+                return null;
+            }
+        }
+
+        return null;
     }
 
     public static <T> ArrayList<T> list(Class c)
@@ -167,26 +296,12 @@ public class JSONDBRecord <T extends JSONDBRecord> implements BaseColumns, Seria
                                         String having,
                                         String orderBy)
     {
-        ArrayList<Field> columns = new ArrayList<>();
-        Field[] fields = c.getDeclaredFields();
+        ArrayList<Column> columns = generateFields(c);
 
         ArrayList<T> all = new ArrayList<>();
 
-        SQLiteDatabase db = new DBManager(contxt).getWritableDatabase();
-
-        for (Field field : fields)
-        {
-            if (Modifier.isPublic(field.getModifiers()))
-            {
-                columns.add(field);
-            }
-        }
-
-        if (!tableExists(c.getSimpleName().toLowerCase(), db))
-        {
-            Log.i("Creating table", c.getSimpleName().toLowerCase());
-            createTable(c, columns, db);
-        }
+        SQLiteDatabase db = JSONDBApplicationContext.getContext().getDatabase();
+        setup(c, db);
 
         // _id is not returned by getDeclaredFields because it's declared
         // higher up the hierarchy
@@ -198,12 +313,12 @@ public class JSONDBRecord <T extends JSONDBRecord> implements BaseColumns, Seria
         }
 
         Cursor cursor = db.query(c.getSimpleName().toLowerCase(),
-            projection,
-            selection,
-            selectionArgs,
-            groupBy,
-            having,
-            orderBy);
+                projection,
+                selection,
+                selectionArgs,
+                groupBy,
+                having,
+                orderBy);
 
         cursor.moveToFirst();
         T record;
@@ -211,32 +326,7 @@ public class JSONDBRecord <T extends JSONDBRecord> implements BaseColumns, Seria
         {
             while (!cursor.isAfterLast())
             {
-                record = (T) c.newInstance();
-                int count = cursor.getColumnCount();
-                for (int i = 0; i < count; i++)
-                {
-                    if (cursor.getColumnName(i).equals(_ID))
-                    {
-                        c.getField("_id").setLong(record, cursor.getInt(i));
-                    }
-                    else if (cursor.getType(i) == Cursor.FIELD_TYPE_INTEGER)
-                    {
-                        c.getField(cursor.getColumnName(i)).setInt(record, cursor.getInt(i));
-                    }
-                    else if (cursor.getType(i) == Cursor.FIELD_TYPE_STRING)
-                    {
-                        Field field = c.getField(cursor.getColumnName(i));
-                        if (field.getType().isAssignableFrom(Date.class))
-                        {
-                            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault());
-                            field.set(record, sdf.parse(cursor.getString(i)));
-                        }
-                        else
-                        {
-                            c.getField(cursor.getColumnName(i)).set(record, cursor.getString(i));
-                        }
-                    }
-                }
+                record = setValues(c, cursor);
 
                 all.add(record);
 
@@ -249,51 +339,83 @@ public class JSONDBRecord <T extends JSONDBRecord> implements BaseColumns, Seria
             e.printStackTrace();
         }
 
-        db.close();
-
         return all;
+    }
+
+    private static <T> T setValues(Class c, Cursor cursor) throws Exception
+    {
+        T record = (T) c.newInstance();
+        int count = cursor.getColumnCount();
+        for (int i = 0; i < count; i++)
+        {
+            if (cursor.getColumnName(i).equals(_ID))
+            {
+                c.getField("_id").setLong(record, cursor.getInt(i));
+            }
+            else if (cursor.getType(i) == Cursor.FIELD_TYPE_INTEGER)
+            {
+                String name = cursor.getColumnName(i);
+                Field field = c.getField(name);
+                if (isPrimitive(c.getField(name)))
+                {
+                    field.setInt(record, cursor.getInt(i));
+                }
+                else if (c.newInstance() instanceof JSONDBRecord)
+                {
+                    SQLiteDatabase db = JSONDBApplicationContext.getContext().getDatabase();
+                    Cursor foreign_cursor = db.query(getTableName(field.getType()), null, _ID + "=?",
+                            new String[]{"" + cursor.getInt(i)}, null, null, null);
+
+                    if (foreign_cursor.moveToFirst())
+                    {
+                        T foreign_record = setValues(field.getType(), foreign_cursor);
+                        field.set(record, foreign_record);
+                    }
+                }
+            }
+            else if (cursor.getType(i) == Cursor.FIELD_TYPE_STRING)
+            {
+                Field field = c.getField(cursor.getColumnName(i));
+                if (field.getType().isAssignableFrom(Date.class))
+                {
+                    SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault());
+                    field.set(record, sdf.parse(cursor.getString(i)));
+                }
+                else
+                {
+                    c.getField(cursor.getColumnName(i)).set(record, cursor.getString(i));
+                }
+            }
+        }
+
+        return record;
     }
 
     public long save()
     {
-        SQLiteDatabase db = new DBManager(contxt).getWritableDatabase();
-        //createTableIfNotExist(columns, db);
+        SQLiteDatabase db = JSONDBApplicationContext.getContext().getDatabase();
+        setup(getClass(), db);
 
-        ArrayList<Field> columns = new ArrayList<>();
-        Field[] fields = getClass().getDeclaredFields();
-
-        for (Field field : fields)
-        {
-            if (Modifier.isPublic(field.getModifiers()))
-            {
-                try
-                {
-                    Class<?> componentType = field.get(this).getClass().getComponentType();
-                    componentType.newInstance();
-                }
-                catch (Exception e)
-                {
-                    e.printStackTrace();
-                }
-
-                columns.add(field);
-            }
-        }
-
-        if (!tableExists(table_name, db))
-        {
-            createTable(columns, db);
-        }
+        ArrayList<Column> columns = generateFields(getClass());
 
         ContentValues values = new ContentValues();
-        for (Field field : columns)
+        for (Column column : columns)
         {
             try
             {
-                String type = fieldType(field);
+                String type = column.getType();
+                String name = column.getName();
 
                 if (!type.equals(UNSUPPORTED))
                 {
+                    Field field = getClass().getField(name);
+                    if (column.isPrimaryKey())
+                    {
+                        long id = ((JSONDBRecord)field.get(this)).save();
+                        values.put(name, id);
+                        continue;
+                    }
+
                     if (type.equals(INTEGER))
                     {
                         values.put(field.getName(), field.getInt(this));
@@ -330,29 +452,27 @@ public class JSONDBRecord <T extends JSONDBRecord> implements BaseColumns, Seria
         if (_id == -1)
         {
             _id = db.insert(
-                    table_name,
+                    getTableName(getClass()),
                     null,
                     values);
         }
         else
         {
-            db.update(table_name,
+            db.update(getTableName(getClass()),
                     values,
                     _ID+"=?",
                     new String[]{""+_id});
         }
-
-        db.close();
 
         return _id;
     }
 
     public void delete()
     {
-        SQLiteDatabase db = new DBManager(contxt).getWritableDatabase();
-        createTableIfNotExist(columns, db);
+        SQLiteDatabase db = JSONDBApplicationContext.getContext().getDatabase();
+        setup(getClass(), db);
 
-        db.delete(table_name,
+        db.delete(getTableName(getClass()),
                 _ID + "=?",
                 new String[]{"" + _id});
     }
@@ -366,52 +486,26 @@ public class JSONDBRecord <T extends JSONDBRecord> implements BaseColumns, Seria
 
     public static void deleteAll(Class c, String where, String[] selectionArgs)
     {
-        SQLiteDatabase db = new DBManager(contxt).getWritableDatabase();
-        createTableIfNotExist(columns, db);
+        SQLiteDatabase db = JSONDBApplicationContext.getContext().getDatabase();
+        setup(c, db);
 
         String table_name = c.getSimpleName().toLowerCase();
         db.delete(table_name,
                 where,
                 selectionArgs);
-
-        db.close();
     }
 
-    private static void createTable(Class c, ArrayList<Field> fields, SQLiteDatabase db)
+    private static void createTable(Class c, SQLiteDatabase db)
     {
-        String table_name = c.getSimpleName().toLowerCase();
+        String table_name = getTableName(c);
+        ArrayList<Column> columns = generateFields(c);
 
         String query = "CREATE TABLE " + table_name + " (" +
                 _ID + " INTEGER PRIMARY KEY, ";
 
-        for (Field field : fields)
+        for (Column column : columns)
         {
-            query += field.getName() + " " + fieldType(field) + ",";
-        }
-
-        query = query.substring(0, query.length() - 1) + ")";
-
-        db.execSQL(query);
-    }
-
-    private static void createTableIfNotExist(Class c, ArrayList<Field> fields, SQLiteDatabase db)
-    {
-        if (!tableExists(table_name, db))
-        {
-            createTable(fields, db);
-        }
-    }
-
-    private void createTable(ArrayList<Field> fields, SQLiteDatabase db)
-    {
-        String table_name = getClass().getSimpleName().toLowerCase();
-
-        String query = "CREATE TABLE " + table_name + " (" +
-                _ID + " INTEGER PRIMARY KEY, ";
-
-        for (Field field : fields)
-        {
-            query += field.getName() + " " + fieldType(field) + ",";
+            query += column.getName() + " " + column.getType() + ",";
         }
 
         query = query.substring(0, query.length() - 1) + ")";
@@ -420,7 +514,7 @@ public class JSONDBRecord <T extends JSONDBRecord> implements BaseColumns, Seria
     }
 
     private static boolean tableExists(String tableName, SQLiteDatabase db) {
-        Cursor cursor = db.rawQuery("select DISTINCT tbl_name from sqlite_master where tbl_name = '"+tableName+"'", null);
+        Cursor cursor = db.rawQuery("select DISTINCT tbl_name from sqlite_master where tbl_name = '" + tableName + "'", null);
         if(cursor != null)
         {
             if(cursor.getCount() > 0)
@@ -462,7 +556,38 @@ public class JSONDBRecord <T extends JSONDBRecord> implements BaseColumns, Seria
         {
             return TEXT;
         }
+        else
+        {
+            try
+            {
+                if (type.newInstance() instanceof JSONDBRecord)
+                {
+                    return INTEGER;
+                }
+            }
+            catch (Exception e)
+            {
+                // TODO ignore
+                e.printStackTrace();
+            }
+        }
 
         return UNSUPPORTED;
+    }
+
+    private static boolean isPrimitive(Field field)
+    {
+        Class <?> type = field.getType();
+        if (type == Long.TYPE ||
+                type == Integer.TYPE ||
+                type == Short.TYPE ||
+                type == Byte.TYPE ||
+                type == Double.TYPE ||
+                type == Float.TYPE)
+        {
+            return true;
+        }
+
+        return false;
     }
 }

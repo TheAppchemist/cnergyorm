@@ -61,7 +61,7 @@ public class TestAdapter extends BaseAdapter
         User user = getItem(i);
         txt_name.setText(user.name);
         txt_age.setText(""+user.age);
-        txt_id.setText("Date: " + user.created.toString());
+        txt_id.setText("Profile: " + user.profile.address);
 
         return view;
     }

@@ -6,6 +6,9 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.EditText;
 
+import java.text.SimpleDateFormat;
+import java.util.Date;
+
 
 public class EditActivity extends AppCompatActivity
 {
@@ -50,8 +53,20 @@ public class EditActivity extends AppCompatActivity
         //noinspection SimplifiableIfStatement
         if (id == R.id.action_save)
         {
+            Profile profile = new Profile();
+            profile.address = "5 5th Avenue";
+            try {
+                profile.dob = new SimpleDateFormat("yyyy-MM-dd").parse("1991-10-24");
+            }
+            catch (Exception e)
+
+            {
+                e.printStackTrace();
+            }
+
             user.name = edt_name.getText().toString();
             user.age = Integer.parseInt(edt_age.getText().toString());
+            user.profile = profile;
             user.save();
             setResult(RESULT_OK);
             finish();

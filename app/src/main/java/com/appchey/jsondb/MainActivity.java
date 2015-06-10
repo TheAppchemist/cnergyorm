@@ -1,5 +1,6 @@
 package com.appchey.jsondb;
 
+import android.app.AlertDialog;
 import android.content.Intent;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
@@ -28,15 +29,25 @@ public class MainActivity extends AppCompatActivity
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        JSONDBRecord.init(getApplicationContext());
-
         ListView list = (ListView)findViewById(R.id.list);
         adapter = new TestAdapter();
         list.setAdapter(adapter);
+        list.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                User user = User.findById(User.class, position+1);
+                AlertDialog.Builder builder = new AlertDialog.Builder(MainActivity.this)
+                        .setTitle("Info")
+                        .setMessage(user.name);
+
+                builder.create().show();
+            }
+        });
         registerForContextMenu(list);
 
+        //Car.list(Car.class);
         users = User.query(User.class)
-                .where("age>?", new String[] {"1"})
+                //.where("age>?", new String[] {"1"})
                 .orderAsc("created")
                 .list();
         adapter.setList(users);

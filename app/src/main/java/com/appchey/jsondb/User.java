@@ -1,5 +1,6 @@
 package com.appchey.jsondb;
 
+import java.util.ArrayList;
 import java.util.Date;
 
 public class User extends JSONDBRecord <User>
@@ -8,4 +9,6 @@ public class User extends JSONDBRecord <User>
     public String name;
     public int age;
     public Date created = new Date();
+    public ArrayList<Car> cars;
+    public Profile profile;
 }
