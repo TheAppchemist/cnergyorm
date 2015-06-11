@@ -1,4 +1,4 @@
-package com.appchey.jsondb;
+package com.appchemy.cnergyorm;
 
 import android.content.ContentValues;
 import android.database.Cursor;
@@ -6,7 +6,7 @@ import android.database.sqlite.SQLiteDatabase;
 import android.provider.BaseColumns;
 import android.text.TextUtils;
 
-import com.appchey.jsondb.tableinfo.Column;
+import com.appchemy.cnergyorm.tableinfo.Column;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 
@@ -21,11 +21,10 @@ import java.lang.reflect.Type;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
-import java.util.Hashtable;
 import java.util.Iterator;
 import java.util.Locale;
 
-public class JSONDBRecord <T extends JSONDBRecord> implements BaseColumns, Serializable
+public class CnergyModel<T extends CnergyModel> implements BaseColumns, Serializable
 {
     private static final long serialVersionUID = 6349676001008456136L;
     public static final String INTEGER = "INTEGER";
@@ -38,13 +37,13 @@ public class JSONDBRecord <T extends JSONDBRecord> implements BaseColumns, Seria
 
     public long _id = -1;
 
-    public JSONDBRecord()
+    public CnergyModel()
     {
-        SQLiteDatabase db = JSONDBApplicationContext.getContext().getDatabase();
+        SQLiteDatabase db = CnergyApplicationContext.getContext().getDatabase();
         setup(getClass(), db);
     }
 
-    public JSONDBRecord(JsonParser parser) throws IOException
+    public CnergyModel(JsonParser parser) throws IOException
     {
         if (parser.nextToken() != JsonToken.START_OBJECT)
         {
@@ -78,14 +77,14 @@ public class JSONDBRecord <T extends JSONDBRecord> implements BaseColumns, Seria
                     }
                     catch (Exception e)
                     {
-
+                        e.printStackTrace();
                     }
                 }
             }
         }
     }
 
-    public JSONDBRecord(JSONObject json)
+    public CnergyModel(JSONObject json)
     {
         this();
 
@@ -175,7 +174,7 @@ public class JSONDBRecord <T extends JSONDBRecord> implements BaseColumns, Seria
                 {
                     try
                     {
-                        if (field.getType().newInstance() instanceof JSONDBRecord)
+                        if (field.getType().newInstance() instanceof CnergyModel)
                         {
                             name = getTableName(field.getType());
                             columns.add(new Column(name, fieldType(field), true));
@@ -211,7 +210,7 @@ public class JSONDBRecord <T extends JSONDBRecord> implements BaseColumns, Seria
 
     public static <T> T findById(Class c, int id)
     {
-        SQLiteDatabase db = JSONDBApplicationContext.getContext().getDatabase();
+        SQLiteDatabase db = CnergyApplicationContext.getContext().getDatabase();
         ArrayList<Column> columns = generateFields(c);
         String[] projection = new String[columns.size() + 1];
         projection[projection.length - 1] = "_id";
@@ -300,7 +299,7 @@ public class JSONDBRecord <T extends JSONDBRecord> implements BaseColumns, Seria
 
         ArrayList<T> all = new ArrayList<>();
 
-        SQLiteDatabase db = JSONDBApplicationContext.getContext().getDatabase();
+        SQLiteDatabase db = CnergyApplicationContext.getContext().getDatabase();
         setup(c, db);
 
         // _id is not returned by getDeclaredFields because it's declared
@@ -360,9 +359,9 @@ public class JSONDBRecord <T extends JSONDBRecord> implements BaseColumns, Seria
                 {
                     field.setInt(record, cursor.getInt(i));
                 }
-                else if (c.newInstance() instanceof JSONDBRecord)
+                else if (c.newInstance() instanceof CnergyModel)
                 {
-                    SQLiteDatabase db = JSONDBApplicationContext.getContext().getDatabase();
+                    SQLiteDatabase db = CnergyApplicationContext.getContext().getDatabase();
                     Cursor foreign_cursor = db.query(getTableName(field.getType()), null, _ID + "=?",
                             new String[]{"" + cursor.getInt(i)}, null, null, null);
 
@@ -393,7 +392,7 @@ public class JSONDBRecord <T extends JSONDBRecord> implements BaseColumns, Seria
 
     public long save()
     {
-        SQLiteDatabase db = JSONDBApplicationContext.getContext().getDatabase();
+        SQLiteDatabase db = CnergyApplicationContext.getContext().getDatabase();
         setup(getClass(), db);
 
         ArrayList<Column> columns = generateFields(getClass());
@@ -411,7 +410,7 @@ public class JSONDBRecord <T extends JSONDBRecord> implements BaseColumns, Seria
                     Field field = getClass().getField(name);
                     if (column.isPrimaryKey())
                     {
-                        long id = ((JSONDBRecord)field.get(this)).save();
+                        long id = ((CnergyModel)field.get(this)).save();
                         values.put(name, id);
                         continue;
                     }
@@ -469,7 +468,7 @@ public class JSONDBRecord <T extends JSONDBRecord> implements BaseColumns, Seria
 
     public void delete()
     {
-        SQLiteDatabase db = JSONDBApplicationContext.getContext().getDatabase();
+        SQLiteDatabase db = CnergyApplicationContext.getContext().getDatabase();
         setup(getClass(), db);
 
         db.delete(getTableName(getClass()),
@@ -486,7 +485,7 @@ public class JSONDBRecord <T extends JSONDBRecord> implements BaseColumns, Seria
 
     public static void deleteAll(Class c, String where, String[] selectionArgs)
     {
-        SQLiteDatabase db = JSONDBApplicationContext.getContext().getDatabase();
+        SQLiteDatabase db = CnergyApplicationContext.getContext().getDatabase();
         setup(c, db);
 
         String table_name = c.getSimpleName().toLowerCase();
@@ -560,7 +559,7 @@ public class JSONDBRecord <T extends JSONDBRecord> implements BaseColumns, Seria
         {
             try
             {
-                if (type.newInstance() instanceof JSONDBRecord)
+                if (type.newInstance() instanceof CnergyModel)
                 {
                     return INTEGER;
                 }

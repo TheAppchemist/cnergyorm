@@ -1,14 +1,14 @@
-package com.appchey.jsondb;
+package com.appchemy.cnergyorm;
 
 import android.app.Application;
 import android.database.sqlite.SQLiteDatabase;
 
-public class JSONDBApplicationContext extends Application
+public class CnergyApplicationContext extends Application
 {
-    private static JSONDBApplicationContext instance = null;
+    private static CnergyApplicationContext instance = null;
     private SQLiteDatabase db;
 
-    public JSONDBApplicationContext()
+    public CnergyApplicationContext()
     {
         instance = this;
     }
@@ -22,7 +22,7 @@ public class JSONDBApplicationContext extends Application
         db = manager.getWritableDatabase();
     }
 
-    public static JSONDBApplicationContext getContext()
+    public static CnergyApplicationContext getContext()
     {
         return instance;
     }

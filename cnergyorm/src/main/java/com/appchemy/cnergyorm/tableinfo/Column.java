@@ -1,4 +1,4 @@
-package com.appchey.jsondb.tableinfo;
+package com.appchemy.cnergyorm.tableinfo;
 
 public class Column
 {

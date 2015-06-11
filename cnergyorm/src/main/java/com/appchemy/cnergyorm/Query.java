@@ -1,4 +1,4 @@
-package com.appchey.jsondb;
+package com.appchemy.cnergyorm;
 
 import java.util.ArrayList;
 
@@ -54,7 +54,7 @@ public class Query
             }
         }
 
-        return JSONDBRecord.list(c,
+        return CnergyModel.list(c,
                 selection,
                 selectionArgs,
                 null,

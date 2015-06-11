@@ -1,4 +1,4 @@
-package com.appchey.jsondb;
+package com.appchemy.cnergyorm;
 
 import android.content.Context;
 import android.database.sqlite.SQLiteDatabase;

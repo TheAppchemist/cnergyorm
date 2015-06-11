@@ -1,4 +1,4 @@
-package com.appchey.jsondb;
+package com.appchemy.cnergyorm;
 
 import android.app.Application;
 import android.test.ApplicationTestCase;
