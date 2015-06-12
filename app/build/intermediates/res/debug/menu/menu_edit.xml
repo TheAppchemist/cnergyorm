@@ -1,0 +1,7 @@
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools" tools:context="com.appchey.jsondb.EditActivity">
+    <item android:id="@+id/action_save" android:title="Save"
+        android:orderInCategory="100" app:showAsAction="always" />
+</menu>
+<!-- From: file:/Users/melvin/StudioProjects/jsondb/app/src/main/res/menu/menu_edit.xml -->

@@ -2,9 +2,8 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/JSONDB.iml" filepath="$PROJECT_DIR$/JSONDB.iml" />
-      <module fileurl="file://$PROJECT_DIR$/JSONDB.iml" filepath="$PROJECT_DIR$/JSONDB.iml" />
       <module fileurl="file://$PROJECT_DIR$/cnergyorm/cnergyorm.iml" filepath="$PROJECT_DIR$/cnergyorm/cnergyorm.iml" />
+      <module fileurl="file://$PROJECT_DIR$/jsondb.iml" filepath="$PROJECT_DIR$/jsondb.iml" />
     </modules>
   </component>
 </project>
